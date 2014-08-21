@@ -1,6 +1,12 @@
 {
+    "autoload": {
+        "classmap": [ "./lib/" ]
+    },
     "require": {
-        "slim/slim": "*"
+        "slim/slim": "*",
+        "slim/extras": "2.0.*@stable",
+        "twig/twig": "*@stable"
+
     },
     "require-dev": {
         "phpunit/phpunit": "*"

@@ -1,2 +1,46 @@
 runtime: php55
-run: exec php -S 127.0.0.1:8000
+run: exec php -S "${HTTP_HOST-127.0.0.1}:${HTTP_PORT-8000}" -t "web/" web/index.php
+run_web: |
+  cat << EOF > ${DATA_PATH-.}/php-fpm.${HTTP_PORT-8000}.conf
+  [global]
+  pid = ${DATA_PATH-.}/php-fpm.${HTTP_PORT-8000}.pid
+  error_log = ${LOGS_PATH-.}/php.error.log
+  log_level = warn
+  emergency_restart_threshold = 0
+  emergency_restart_interval = 0
+  process_control_timeout = 0
+  daemonize = false
+
+  [site]
+  listen = 127.0.0.1:${HTTP_PORT-8000}
+  listen.backlog = -1
+  listen.allowed_clients = 127.0.0.1
+
+  pm = dynamic
+  pm.max_children = 200
+  pm.start_servers = 10
+  pm.min_spare_servers = 10
+  pm.max_spare_servers = 75
+  pm.max_requests = 5000
+
+  request_terminate_timeout = 120s
+  request_slowlog_timeout = 10s
+  slowlog = ${LOGS_PATH-.}/php.slowlog.log
+
+  chdir = ${REPO_PATH-.}/web
+  catch_workers_output = true
+
+  env[ENV] = "${ENV-development}"
+  env[DATA_PATH] = "${DATA_PATH-.}"
+  env[DEPS_PATH] = "${DEPS_PATH-.}"
+  env[LOGS_PATH] = "${LOGS_PATH-.}"
+  env[REPO_PATH] = "${REPO_PATH-.}"
+
+  php_value[error_log] = ${LOGS_PATH-.}/php.error.log
+  php_flag[display_errors] = off
+  php_admin_flag[log_errors] = on
+  php_value[memory_limit] = 32M
+
+  EOF
+
+  exec php-fpm -c "${REPO_PATH-.}/php.ini" -y "${DATA_PATH-.}/php-fpm.${HTTP_PORT-8000}.conf"

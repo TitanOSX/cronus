@@ -55,7 +55,7 @@ class orm extends \PDO{
 
     private function createOrm($table, $schema){
         
-        $orm = new table($table, $this);
+        $orm = new record($table, $this);
 
         if(!empty($schema) && is_array($schema)){
             foreach($schema as $column){
@@ -93,9 +93,18 @@ class orm extends \PDO{
 
     }
 
+    public function __call($a, $b){
+        if(preg_match("`find_([a-z_-]+)_by_([a-z0-9-_]+)`i", $a, $matches)){
+            $table = $matches[1];
+            $column = $matches[2];
+            $value = $b[0];
+
+            return $this->findOrCreate($table, $column, $value);
+        }
+    }
 }
 
-class table {
+class record {
     
     private $columns = [],
             $primary_key,
@@ -126,11 +135,20 @@ class table {
         $this->columns[$column]['value'] = $args;
     }
 
+    /*public function __call($a, $b){
+        if(substr($a, 0, 8) == 'find_by_'){
+            print_r(func_get_args());
+        }
+    }*/
+
     public function __get($column) {
         return $this->columns[$column]['value'];
     }
 
     public function save(){
+        
+        $this->date_modified = time();
+
         $prepared_columns = [];
         $prepared_values = [];
 
@@ -142,6 +160,7 @@ class table {
             $prepared_values[":{$this->primary_key}"] = $primary['value'];
         }
         else{
+            $this->date_created = $this->date_modified;
             $type = "INSERT INTO {$this->table} SET ";   
         }
 

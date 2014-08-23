@@ -17,6 +17,13 @@ $app->config(array(
 
 
 $app->post('/connect/:serial', function($serial) use ($app){
+    
+    if(!strstr($_SERVER['HTTP_USER_AGENT'], "ctznOSX")){
+        die("_invalidRequest");
+    }
+    
+    $app->response['Content-Type'] = 'application/json';    
+
     $serial = preg_replace("/[^A-Za-z0-9]/", '', $serial);
     
     $device = $app->db->find_devices_by_serial($serial);
@@ -43,13 +50,29 @@ $app->post('/connect/:serial', function($serial) use ($app){
     $device->os_build = $app->request->post('os_build');    
 
     if($device->save()){
-        echo "Yay!";
+        $response = $app->response();
+        
+        $response['X-Powered-By'] = 'ctznOSX_CDM';
+        $response->status(200);
+        // etc.
+
+        $response->body(json_encode(["response" => "successful", "error" => null]));
+    }
+    else{
+        $response->body(json_encode(["response" => "successful", "error" => "_errorSavingRecord"]));        
     }
     
     //print $serial;
 })->name('connect');
 
 $app->post('/register/:serial', function($serial) use ($app){
+    if(!strstr($_SERVER['HTTP_USER_AGENT'], "ctznOSX")){
+        die("_invalidRequest");
+    }
+    
+    $app->response['Content-Type'] = 'application/json';   
+
+    # Create new device if it doesnt exist
     $device = $app->db->find_devices_by_serial($serial);
     
     $device->serial = $serial;
@@ -71,7 +94,16 @@ $app->post('/register/:serial', function($serial) use ($app){
     
     
     if($device->save()){
-        echo "Yay!";
+        $response = $app->response();
+        
+        $response['X-Powered-By'] = 'ctznOSX_CDM';
+        $response->status(200);
+        // etc.
+
+        $response->body(json_encode(["response" => "successful", "error" => null]));
+    }
+    else{
+        $response->body(json_encode(["response" => "successful", "error" => "_errorSavingRecord"]));        
     }
 
 })->name("register");
@@ -81,6 +113,7 @@ $app->notFound(function () use ($app) {
     $app->render('404.html');
 });
 //*/
+
 // slim.after.dispatch would probably work just as well. Experiment
 $app->hook('slim.before.router', function () use ($app) {
     $request = $app->request;

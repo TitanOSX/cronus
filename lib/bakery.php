@@ -68,6 +68,18 @@ class orm extends \PDO{
 
         return $orm;
     }
+
+    public function create($table){
+        
+        if( in_array($table, $this->tables) === false ){
+            return false;
+        }
+
+        $schema = $this->getTableSchema($table);
+        $orm = $this->createOrm($table, $schema);
+
+        return $orm;        
+    }
     /*
     
      */
@@ -135,6 +147,10 @@ class record {
         $this->columns[$column]['value'] = $args;
     }
 
+    public function __toString(){
+        return $this->{$this->primary_key};
+    }
+
     /*public function __call($a, $b){
         if(substr($a, 0, 8) == 'find_by_'){
             print_r(func_get_args());
@@ -143,6 +159,14 @@ class record {
 
     public function __get($column) {
         return $this->columns[$column]['value'];
+    }
+
+    public function hasColumn($column){
+        if(array_key_exists($column, $this->columns)){
+            return true;
+        }
+
+        return false;
     }
 
     public function save(){

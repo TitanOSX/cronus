@@ -1,199 +1,219 @@
 <?php
 
-header("X-Frame-Options: SAMEORIGIN");
-header("X-Content-Type-Options: nosniff");
-header("X-XSS-Protection: 1; mode=block");
-header("Content-Security-Header: default-src 'none'; script-src 'self'; connect-src 'self'; img-src 'self'; style-src 'self'; font-src 'self'; report-uri https://caspr.io/endpoint/c1d30cf273f2eca63927fc7f29d90c019e0914119aa27e682513a415bfdde082");
+/**
+ *  Mike Mackintosh
+ */
 
+
+// Load SlimAuth stuff
+use JeremyKendall\Password\PasswordValidator as Auth_Validator;
+use JeremyKendall\Slim\Auth\Adapter\Db\PdoAdapter as Auth_DBAdapter;
+use JeremyKendall\Slim\Auth\Bootstrap as Auth_Bootstrap;
+
+
+// Load Composer Autoload
 require_once('vendor/autoload.php');
-$app = new \Slim\Slim();
 
-$app->db = new \bakery\orm('10.211.55.3', 'cdm', 'cdm', 'LOLCAT!', 'mysql');
+// Set cookies to httponly
+ini_set( 'session.cookie_httponly', 1 );
 
-$app->config(array(
-    'debug' => true,
-    'templates.path' => 'views/'
-));
 
-$app->post('/connect/:serial', function($serial) use ($app){
+// Start session tracking
+session_start();
+
+
+// Try/Catch block
+try{
+
+
+    // Init Slim
+    $app = new \Slim\Slim();
+
+    // Set Configurations
+    $app->config(array(
+        'debug' => true,
+        'templates.path' => 'views/',
+        'view' => new \Slim\Views\Twig(),
+        'cookies.encrypt' => true,
+        'cookies.secret_key' => '(mz nJAk1-_ 912= kakcm!9zka:!,c)  =',        
+    ));
+
     
-    if(!strstr($_SERVER['HTTP_USER_AGENT'], "ctznOSX")){
-        die("_invalidRequest");
-    }
+    // Validator Library for Forms
+    $app->container->singleton('validate', function () {
+        return new Respect\Validation\Validator;
+    });
+
+
+    // Assign user
+    $app->user = (is_array($_SESSION['user']) ? 
+                        $_SESSION['user'] : ['authed' => false, 'username' => 'Guest']);
+    $app->twig = $app->view()->getEnvironment();
+    $app->twig->addGlobal('user', $app->user);
     
-    $app->response['Content-Type'] = 'application/json';    
+    // Set security headers
+    $app->response()->header('X-Content-Type-Options', 'nosniff');
+    $app->response()->header('X-XSS-Protection', '1; mode=block');
+    $app->response()->header('X-Frame-Options', 'SAMEORIGIN');
 
-    $serial = preg_replace("/[^A-Za-z0-9]/", '', $serial);
-    
-    $device = $app->db->find_devices_by_serial($serial);
-    
-    if( is_null($device->id) ){
-        $app->response->redirect($app->request->getUrl().$app->urlFor('register', ['serial' => $serial]), 307);
-        return;
-    }
 
-    if(strlen($app->request->post('model')) == 4){
-        $model = simplexml_load_string(
-                    file_get_contents("http://support-sp.apple.com/sp/product?cc={$app->request->post('model')}")
-                 )->configCode;
-    }
+    /**
+     * Detect config.ini
+     * 
+     * If config.ini exists, then`
+     * create the database connection
+     * else, error
+     **/
+    if(file_exists('config.ini')){
+        $config = parse_ini_file('config.ini');
+        $app->db = new \bakery\orm($config['host'], $config['name'], 
+                    $config['user'], $config['password'], $config['driver']);
 
-    $device->serial = $serial;
-    $device->uuid = $app->request->post('uuid');
-    $device->make = $app->request->post('make');
-    $device->model = $model;
-    $device->cpu_type = $app->request->post('cpu_type');
-    $device->cpu_speed = $app->request->post('cpu_speed');
-    $device->physical_memory = $app->request->post('physical_memory');
-    $device->os_version = $app->request->post('os_version');
-    $device->os_build = $app->request->post('os_build');    
+        /*$auth_adapter = new Auth_DBAdapter(
+            $app->db, 
+            'users', 
+            'email', 
+            'authentication_token', 
+            new Auth_Validator()
+        );        
 
-    if($device->save()){
-        $response = $app->response();
-        
-        $response['X-Powered-By'] = 'ctznOSX_CDM';
-        $response->status(200);
-        // etc.
-
-        $response->body(json_encode(["response" => "successful", "error" => null]));
+        $authBootstrap = new Auth_Bootstrap($app, $auth_adapter, new \Bakery\Auth\Acl());
+        $authBootstrap->bootstrap();  */      
     }
     else{
-        $response->body(json_encode(["response" => "failure", "error" => "_errorSavingRecord"]));        
+        $app->render('status/no_database.twig');
+        die();
     }
+
     
-    //print $serial;
-})->name('connect');
-
-$app->post('/register/:serial', function($serial) use ($app){
-
-    if(!strstr($_SERVER['HTTP_USER_AGENT'], "ctznOSX")){
-        die("_invalidRequest");
-    }
-    
-    $app->response['Content-Type'] = 'application/json';   
-
-    # Create new device if it doesnt exist
-    $device = $app->db->find_devices_by_serial($serial);
-    
-    $device->serial = $serial;
-
-    if(strlen($app->request->post('model')) == 4){
-        $model = simplexml_load_string(
-                    file_get_contents("http://support-sp.apple.com/sp/product?cc={$app->request->post('model')}")
-                 )->configCode;
-    }
-
-    $device->uuid = $app->request->post('uuid');
-    $device->make = $app->request->post('make');
-    $device->model = $model;
-    $device->cpu_type = $app->request->post('cpu_type');
-    $device->cpu_speed = $app->request->post('cpu_speed');
-    $device->physical_memory = $app->request->post('physical_memory');
-    $device->os_version = $app->request->post('os_version');
-    $device->os_build = $app->request->post('os_build');
-    
-    if($device->save()){
-        $response = $app->response();
-        
-        $response['X-Powered-By'] = 'ctznOSX_CDM';
-        $response->status(200);
-        // etc.
-
-        $response->body(json_encode(["response" => "successful", "error" => null]));
-    }
-    else{
-        $response->body(json_encode(["response" => "failure", "error" => "_errorSavingRecord"]));        
-    }
-
-})->name("register");
+    // Add Slim Session Middleware
+    $app->add(new \Slim\Middleware\SessionCookie());
 
 
-$app->post('/observer/:serial', function($serial) use ($app){
-    
-    # Set Response Object
-    $response = $app->response();
+    // Set up default 404 
+    ///*
+    $app->notFound(function () use ($app) {
+        $app->render('404.html');
+    });
+    //*/
 
-    if(!strstr($_SERVER['HTTP_USER_AGENT'], "ctznOSX")){
-        die("_invalidRequest");
-    }
 
-    if($_POST['ping'] == 'ping'){
-        $response->status(203);
-        $response->body(json_encode(["response" => "successful", "error" => null]));        
-        return;
-    }
-
-    if( hash("sha256", $_POST['stream']) != $_POST['digest']){
-        $response->status(417);        
-
-        $response->body(json_encode(["response" => "failure", "error" => "_couldNotValidateStream"]));        
-        return;
-    }
-    
-    $app->response['Content-Type'] = 'application/json';   
-
-    $stream = zlib_decode($_POST['stream']);
-
-    # Create new device if it doesnt exist
-    $device = $app->db->find_devices_by_serial($serial);
-
-    $module_data = json_decode($stream);
-    $table = $module_data->module;
-
-    try{
-        $module_template = $app->db->create("module_".$table);
-    
-
-        $successes = 0;
-        $required = sizeof($module_data->data);
-
-        foreach($module_data->data as $row){
-            $module = $module_template;
-
-            $module->device_id = $device->id;
-
-            foreach($row as $column => $value){
-                if($module->hasColumn($column)){
-                    $module->{$column} = $value;
-                }
-            }
-            if($module->save()){
-                $successes++;
-            }
+    // Autoload Routes
+    foreach(
+            new RecursiveIteratorIterator(
+               new RecursiveDirectoryIterator(
+                    './lib/routes/'
+               )
+            ) as $file){
+        //
+        if(is_file($file->getPathname())){
+            require_once $file->getPathname();
         }
     }
-    catch(\Exception $e){
-        $response->status(403);        
-        $response->body(json_encode(["response" => "failure", "error" => "_moduleSchemaDoesNotExist"]));                
-        return;
+    
+    /**
+     * Generate CSFR
+     * 
+     * @key is unique csrf token key
+     * 
+     * returns password_hash
+     **/
+    function generate_csrf( $key = NULL ){
+        
+        if(is_null($key)){
+            $key = substr(md5(microtime(true)), 2, 8);
+        }
+
+        $nonce = mcrypt_create_iv(22, MCRYPT_DEV_URANDOM);
+        $_SESSION["nonce_key_{$key}"] = $nonce;
+        
+        return password_hash( $nonce, PASSWORD_BCRYPT, ["cost" => 13] );
     }
 
-    if($required == $successes){       
-        $response['X-Powered-By'] = 'ctznOSX_CDM';
-        $response->status(202);
-        // etc.
+    /**
+     * Validate CSFR
+     * 
+     * @key is unique csrf token key
+     * 
+     * returns boolean true/false
+     **/
+    function validate_csrf( $key = NULL, $field='hdnonce_' ){
 
-        $response->body(json_encode(["response" => "successful", "error" => null]));
+        if(password_verify($_SESSION["nonce_key_{$key}"], $_POST[$field])){
+            return true;
+        }   
+
+        return false;
     }
-    else{
-        $response->status(504);        
-        $response->body(json_encode(["response" => "failure", "error" => "_errorUploadingModuleData"]));        
-    }
 
-})->name("observer");
+    /**
+     * 
+     **/
+    function create_slug($slug, $hyphenate = true){
+        $slug = strtolower($slug);
 
-/*
-$app->notFound(function () use ($app) {
-    $app->render('404.html');
-});
-//*/
+        if($hyphenate){
+            $slug = preg_replace("/[-\s\W]/","-",$slug);
+        }
 
-// slim.after.dispatch would probably work just as well. Experiment
-$app->hook('slim.before.router', function () use ($app) {
-    $request = $app->request;
-    $response = $app->response;
+        return preg_replace("/[^a-z0-9-]/", "",strtolower($slug));
+    }  
 
-    $app->log->debug(date('Y/M/d H:i:s - ').$response->getStatus().' - '. $request->getPathInfo());
-});
 
-$app->run();
+    /** Login route MUST be named 'login' **/
+    $app->map('/login', function () use ($app) {
+        
+        $username = null;
+
+        if ($app->request()->isPost()) {
+            if(!validate_csrf('login')){
+                $app->flashNow('error', 'Please try your request again.');
+            }
+            $username = $app->request->post('login');
+            $password = $app->request->post('authentication_token');
+
+            $result = $app->authenticator->authenticate($username, $password);
+
+            if ($result->isValid()) {
+                $_SESSION['user']['username'] = $username;
+                $_SESSION['user']['authed'] = true;
+                $app->redirect('/');
+            } else {
+                $messages = $result->getMessages();
+                $app->flashNow('error', $messages[0]);
+            }
+        }
+
+        $app->render('login.twig', array('login' => $username, "nonce" => generate_csrf('new_request')));
+    })->via('GET', 'POST')->name('login');
+    
+    /** Logout **/
+    $app->get('/logout', function () use ($app) {
+        unset($_SESSION['user']);
+        $app->authenticator->logout();
+        $app->redirect('/');
+    });
+
+    /** Lets validate that Token Header first **/
+    $app->hook('slim.before.dispatch', function() use ($app){
+        if( !isset($app->request->headers['X-Titan-Token']) || 'default' == $app->request->headers['X-Titan-Token']){
+            $app->halt(402, 'Token Required');
+            return;
+        }
+    });
+
+    /** Lets log **/
+    $app->hook('slim.after.router', function () use ($app) {
+        $request = $app->request;
+        $response = $app->response;
+
+        $app->log->debug(date('Y/M/d H:i:s - ').$response->getStatus().' - '. $request->getMethod().' '. $request->getPathInfo());
+    });
+
+    /** Run **/
+    $app->run();
+}
+catch(\Exception $e){
+    print_r($e->getMessage());
+    //$app->render('error.twig');
+}

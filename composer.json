@@ -1,12 +1,15 @@
 {
     "autoload": {
-        "classmap": [ "./lib/" ]
+        "classmap": [ "./lib/", "./lib/routes", "./lib/routes/api/" ] 
     },
     "require": {
         "slim/slim": "*",
+        "slim/views": "0.1.*",
         "slim/extras": "2.0.*@stable",
-        "twig/twig": "*@stable"
-
+        "twig/twig": "*@stable",
+        "Respect/Validation": "*@stable",
+        "predis/predis": "1.1.*@dev",
+        "jeremykendall/slim-auth": "dev-master"
     },
     "require-dev": {
         "phpunit/phpunit": "*"

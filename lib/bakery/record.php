@@ -114,7 +114,6 @@ class record implements \arrayaccess{
         // New Row, return new ID
         if(empty($primary['value'])){
             $this->new_row = true;
-            echo $this->pdo->lastIsnsertId();
             $this->columns[$this->primary_key]['value'] = $this->pdo->lastIsnsertId();
 
             return $this->columns[$this->primary_key]['value'];

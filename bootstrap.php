@@ -51,6 +51,7 @@ try{
     $app->twig = $app->view()->getEnvironment();
     $app->twig->addGlobal('user', $app->user);
     
+
     // Set security headers
     $app->response()->header('X-Content-Type-Options', 'nosniff');
     $app->response()->header('X-XSS-Protection', '1; mode=block');
@@ -187,6 +188,7 @@ try{
         $app->render('login.twig', array('login' => $username, "nonce" => generate_csrf('new_request')));
     })->via('GET', 'POST')->name('login');
     
+
     /** Logout **/
     $app->get('/logout', function () use ($app) {
         unset($_SESSION['user']);
@@ -194,14 +196,16 @@ try{
         $app->redirect('/');
     });
 
+    
     /** Lets validate that Token Header first **/
-    $app->hook('slim.before.dispatch', function() use ($app){
+    $app->hook('slim.before', function() use ($app){
         if( !isset($app->request->headers['X-Titan-Token']) || 'default' == $app->request->headers['X-Titan-Token']){
             $app->halt(402, 'Token Required');
             return;
         }
     });
 
+    
     /** Lets log **/
     $app->hook('slim.after.router', function () use ($app) {
         $request = $app->request;

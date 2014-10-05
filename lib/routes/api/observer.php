@@ -6,7 +6,7 @@ $app->get('/api/observer/:serial', function($serial) use ($app){
         $app->halt(203, 'Send er Up');
     }
 
-    $app->halt(404, 'Not Ready');
+    $app->halt('404', 'Device Not Registered');
 });
 
 $app->post('/api/observer/:serial', function($serial) use ($app){
@@ -37,6 +37,9 @@ $app->post('/api/observer/:serial', function($serial) use ($app){
 
     # Create new device if it doesnt exist
     $device = $app->db->find_devices_by_serial($serial);
+    if(!$device->exists()){
+        $app->halt('404', 'Device Not Registered');
+    }
 
     $module_data = json_decode($stream);
     $table = $module_data->module;
@@ -72,7 +75,7 @@ $app->post('/api/observer/:serial', function($serial) use ($app){
     }
 
     if($required == $successes){       
-        $response['X-Powered-By'] = 'ctznOSX_CDM';
+        $response['X-Powered-By'] = 'titanOSX_CDM';
         $response->status(202);
         // etc.
 

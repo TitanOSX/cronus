@@ -5,4 +5,7 @@ if (php_sapi_name() === 'cli-server' && is_file($filename)) {
     return false;
 }
 
-require_once(dirname(dirname(__FILE__)).'/bootstrap.php');
+define('CDM_ROOT', dirname(dirname(__FILE__)));
+
+chdir(CDM_ROOT);
+require_once(CDM_ROOT.'/bootstrap.php');

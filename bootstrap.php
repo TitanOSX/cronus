@@ -17,6 +17,8 @@ require_once('vendor/autoload.php');
 // Set cookies to httponly
 ini_set( 'session.cookie_httponly', 1 );
 
+// Set NYC as the default timezone
+date_default_timezone_set( 'America/New_York' );
 
 // Start session tracking
 session_start();
